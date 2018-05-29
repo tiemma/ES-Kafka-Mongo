@@ -1,0 +1,148 @@
+version: "2"
+services:
+  elasticsearch :
+    build: 
+      context: .
+      dockerfile: Dockerfile.es
+    ports:
+      - 9200:9200
+      - 9300:9300
+    container_name: elasticsearch-2
+ 
+  mongo :
+    image: "mongo:latest"
+    container_name: mongo
+    ports:
+      - 27017:27017
+
+  mongorestore:
+    image: "mongo:latest"
+    depends_on:
+      - mongo
+    links: 
+      - mongo
+    volumes: 
+      - "/home/$USER/Documents/REPOS/dump:/dump"        
+      - "./entrypoint.sh:/entrypoint.sh"
+    command: bash entrypoint.sh &
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 2181:2181
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    links:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - 9092:9092
+
+  create-topic:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "gritServer:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1"
+    depends_on:
+      - kafka
+    volumes:
+      - "./create-topic.sh:/create-topic.sh"
+    command: bash create-topic.sh 
+
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    links:
+      - zookeeper
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181 
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry 
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  kafka-rest: 
+    image: confluentinc/cp-kafka-rest
+    container_name: kafka-rest
+    depends_on:
+      - schema-registry
+    links:
+      - zookeeper
+      - kafka
+      - schema-registry
+    environment:
+      KAFKA_REST_ZOOKEEPER_CONNECT: zookeeper:2181 
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082 
+      KAFKA_REST_SCHEMA_REGISTRY_URL: schema-registry:8081 
+      KAFKA_REST_HOST_NAME: localhost 
+    ports:
+      - 8082:8082
+
+
+  kafka-control:
+    image: confluentinc/cp-enterprise-control-center
+    container_name: kafka-control
+    ports: 
+      - 9021:9021 
+    volumes:
+      - "/tmp/control-center/data:/var/lib/confluent-control-center"
+    environment:
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper:2181 
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka:9092 
+      CONTROL_CENTER_REPLICATION_FACTOR: 1 
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1 
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1 
+      CONTROL_CENTER_STREAMS_NUM_STREAM_THREADS: 2 
+      CONTROL_CENTER_CONNECT_CLUSTER: http://kafka-connect:8082 
+  
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect
+    container_name: kafka-connect
+    depends_on:
+      - kafka
+      - create-topic
+      - schema-registry
+    links:
+      - kafka
+      - schema-registry
+      - kafka-rest
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092 
+      CONNECT_REST_PORT: 8082 
+      CONNECT_GROUP_ID: "quickstart" 
+      CONNECT_CONFIG_STORAGE_TOPIC: "quickstart-config" 
+      CONNECT_OFFSET_STORAGE_TOPIC: "quickstart-offsets" 
+      CONNECT_STATUS_STORAGE_TOPIC: "quickstart-status" 
+      CONNECT_KEY_CONVERTER: "io.confluent.connect.avro.AvroConverter" 
+      CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter" 
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter" 
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter" 
+      CONNECT_REST_ADVERTISED_HOST_NAME: localhost   
+      CONNECT_LOG4J_LOGGERS: org.reflections=ERROR 
+      CONNECT_PLUGIN_PATH: /usr/share/java 
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1    
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+
+
+
+      
+
+      
