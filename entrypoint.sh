@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DB='lift-mongo-app';
+DB=$DB_NAME;
 
 DB_PATH="dump/$DB";
 
