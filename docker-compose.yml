@@ -22,7 +22,7 @@ services:
     links: 
       - mongo
     volumes: 
-      - "/home/$USER/Documents/REPOS/dump:/dump"        
+      - "/dump:/dump" #Dump folder which past databases can be recovered from        
       - "./entrypoint.sh:/entrypoint.sh"
     command: bash entrypoint.sh &
 
@@ -54,7 +54,7 @@ services:
     image: confluentinc/cp-kafka:latest
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_CREATE_TOPICS: "gritServer:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1"
+      KAFKA_CREATE_TOPICS: "quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1"
     depends_on:
       - kafka
     volumes:
