@@ -1,10 +1,10 @@
 # ES-Kafka-Mongo
 Fully automated docker-compose setup for elasticsearch, zookeeper, kafka and mongoDB
 
-[Elasticsearch](http://elastic.co/)
-[Kafka](https://www.confluent.io/what-is-apache-kafka/)
-[MongoDB](https://www.mongodb.com/)
-[Zookeeper](https://zookeeper.apache.org/)
+- [Elasticsearch](http://elastic.co/)
+- [Kafka](https://www.confluent.io/what-is-apache-kafka/)
+- [MongoDB](https://www.mongodb.com/)
+- [Zookeeper](https://zookeeper.apache.org/)
 
 This docker-compose setup comes packed with the following configs:
 
