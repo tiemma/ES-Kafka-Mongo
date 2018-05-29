@@ -26,7 +26,7 @@ You can run the docker-compose service by doing
 
 Or run a specific service 
 
-> docker-compose <service-name>
+> docker-compose \<service-name\>
 
 View all available services using
 
