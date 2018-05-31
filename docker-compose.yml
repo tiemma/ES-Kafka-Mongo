@@ -8,14 +8,23 @@ services:
       - 9200:9200
       - 9300:9300
     container_name: elasticsearch-2
+    environment:
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 1g
+    volumes:
+      - es2:/usr/share/elasticsearch/data
  
   mongo :
     image: "mongo:latest"
     container_name: mongo
     ports:
       - 27017:27017
-    environment:
-      DB_NAME: database #Change to suitable database name
 
   mongorestore:
     image: "mongo:latest"
@@ -27,6 +36,8 @@ services:
       - "/dump:/dump" #Dump folder which past databases can be recovered from        
       - "./entrypoint.sh:/entrypoint.sh"
     command: bash entrypoint.sh &
+    environment:
+      DB_NAME: database #Change to suitable database name
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -62,7 +73,7 @@ services:
       - kafka
     volumes:
       - "./create-topic.sh:/create-topic.sh"
-    command: bash create-topic.sh 
+    command: ./wait-for kafka:9092  -- 'echo "Kafka is running"  && bash create-topic.sh' 
 
 
   schema-registry:
@@ -144,6 +155,9 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
 
 
+volumes:
+  es2:
+    driver: local
 
 
       

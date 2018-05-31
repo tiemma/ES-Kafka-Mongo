@@ -4,10 +4,6 @@ if [[ -z "$KAFKA_CREATE_TOPICS" ]]; then
     exit 0
 fi
 
-#Delay script to allow kafka start and expose port for successful topic creation
-sleep 80
-
-
 #Specify alternative seperator, otherwise use a comma
 IFS="${KAFKA_CREATE_TOPICS_SEPARATOR-,}";
 
