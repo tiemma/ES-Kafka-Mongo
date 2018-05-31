@@ -18,3 +18,5 @@ if [ -d "$DB_PATH" ]; then
 
 fi
 
+exit 0
+

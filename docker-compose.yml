@@ -1,24 +1,33 @@
 version: "2"
 services:
   elasticsearch :
-    build: 
-      context: .
-      dockerfile: Dockerfile.es
-    ports:
-      - 9200:9200
-      - 9300:9300
+    image: elasticsearch:2.0.0
     container_name: elasticsearch-2
     environment:
       - cluster.name=docker-cluster
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    depends_on:
+      - elasticsearch-plugin-install
     ulimits:
       memlock:
         soft: -1
         hard: -1
     mem_limit: 1g
     volumes:
-      - es2:/usr/share/elasticsearch/data
+      - ./es2/data:/usr/share/elasticsearch/data/
+      - ./es2/plugins/:/usr/share/elasticsearch/plugins/
+    ports:
+      - 9500:9200
+      - 9600:9300
+    
+  elasticsearch-plugin-install:
+    image: elasticsearch:2.0.0
+    command: "bash /docker-plugin-install.sh cloud-aws"
+    volumes:
+      - ./es2/data/:/usr/share/elasticsearch/data
+      - ./es2/plugins/:/usr/share/elasticsearch/plugins
+      - ./docker-plugin-install.sh:/docker-plugin-install.sh
  
   mongo :
     image: "mongo:latest"
@@ -71,9 +80,12 @@ services:
       KAFKA_CREATE_TOPICS: "quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
     depends_on:
       - kafka
+    links:
+      - kafka
     volumes:
       - "./create-topic.sh:/create-topic.sh"
-    command: ./wait-for kafka:9092  -- 'echo "Kafka is running"  && bash create-topic.sh' 
+      - "./wait-for/wait-for:/wait-for"
+    command: /wait-for kafka:9092  -- 'echo "Kafka is running"  && bash create-topic.sh' 
 
 
   schema-registry:
@@ -152,14 +164,6 @@ services:
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1    
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:808
 
 
-volumes:
-  es2:
-    driver: local
-
-
-      
-
-      
