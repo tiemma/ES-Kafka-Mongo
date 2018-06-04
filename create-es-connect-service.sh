@@ -1,8 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 
+sleep 10
 
 # Create sink service for ES using Kafka Connect endpoint
-curl -X POST http://kafka-connect:8083/connectors/ES-Sink -H "Content-Type: application/json" -d '{
+curl -X POST http://kafka-connect:8083/connectors/ -H "Content-Type: application/json" -d '{
   "name": "gritServer",
   "config": {
     "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",

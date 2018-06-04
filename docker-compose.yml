@@ -20,33 +20,12 @@ services:
     ports:
       - 9200:9200
       - 9300:9300
-    
-  elasticsearch-plugin-install:
-    image: elasticsearch:2.0.0
-    command: "bash /docker-plugin-install.sh cloud-aws"
-    volumes:
-      - ./es2/data/:/usr/share/elasticsearch/data
-      - ./es2/plugins/:/usr/share/elasticsearch/plugins
-      - ./docker-plugin-install.sh:/docker-plugin-install.sh
  
   mongo :
     image: "mongo:latest"
     container_name: mongo
     ports:
       - 27017:27017
-
-  mongorestore:
-    image: "mongo:latest"
-    depends_on:
-      - mongo
-    links: 
-      - mongo
-    volumes: 
-      - "/dump:/dump" #Dump folder which past databases can be recovered from        
-      - "./entrypoint.sh:/entrypoint.sh"
-    command: bash entrypoint.sh &
-    environment:
-      DB_NAME: database #Change to suitable database name
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -71,22 +50,6 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
       - 9092:9092
-
-  create-topic:
-    image: confluentinc/cp-kafka:latest
-    environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      #Append more topics here if needed
-      KAFKA_CREATE_TOPICS: "gritServer:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
-    depends_on:
-      - kafka
-    links:
-      - kafka
-    volumes:
-      - "./create-topic.sh:/create-topic.sh"
-      - "./wait-for/wait-for:/wait-for"
-    command: /wait-for kafka:9092  -- 'echo "Kafka is running"  && bash create-topic.sh' 
-
 
   schema-registry:
     image: confluentinc/cp-schema-registry
@@ -116,10 +79,9 @@ services:
       KAFKA_REST_ZOOKEEPER_CONNECT: zookeeper:2181 
       KAFKA_REST_LISTENERS: http://0.0.0.0:8082 
       KAFKA_REST_SCHEMA_REGISTRY_URL: schema-registry:8081 
-      KAFKA_REST_HOST_NAME: localhost 
+      KAFKA_REST_HOST_NAME: kafka-rest 
     ports:
       - 8082:8082
-
 
   kafka-control:
     image: confluentinc/cp-enterprise-control-center
@@ -146,7 +108,6 @@ services:
     container_name: kafka-connect
     depends_on:
       - kafka
-      - create-topic
       - schema-registry
     links:
       - kafka
@@ -176,5 +137,58 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
     ports:
       - 8083:8083
+
+  create-sinks:
+    image: confluentinc/cp-kafka-connect
+    entrypoint: /bin/bash
+    container_name: create-sinks
+    links:
+      - kafka-connect
+      - elasticsearch
+    volumes:
+      - "./create-es-connect-service.sh:/create-es-connect-service.sh"
+      - "./wait-for/wait-for:/wait-for"
+    command: /wait-for kafka-connect:8083 -t 10000 -- '/create-es-connect-service.sh' 
+
+  create-topic:
+    image: confluentinc/cp-kafka:latest
+    entrypoint: /bin/bash
+    container_name: create-topic
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      #Append more topics here if needed
+      KAFKA_CREATE_TOPICS: "gritServer:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
+    links:
+      - kafka-connect
+      - zookeeper
+    volumes:
+      - "./create-topic.sh:/create-topic.sh"
+      - "./wait-for/wait-for:/wait-for"
+    command: /wait-for kafka-connect:8083 -t 10000 -- '/create-topic.sh' 
+
+  mongorestore:
+    image: "mongo:latest"
+    container_name: mongorestore
+    depends_on:
+      - mongo
+    links: 
+      - mongo
+    volumes: 
+      - "/dump:/dump" #Dump folder which past databases can be recovered from        
+      - "./entrypoint.sh:/entrypoint.sh"
+      - "./wait-for/wait-for:/wait-for"
+    command: /wait-for mongo:27017 -t 10000 -- '/entrypoint.sh' 
+    environment:
+      DB_NAME: database #Change to suitable database name
+
+  elasticsearch-plugin-install:
+    image: elasticsearch:2.0.0
+    container_name: install_es_plugins
+    command: "bash /docker-plugin-install.sh cloud-aws"
+    volumes:
+      - ./es2/data/:/usr/share/elasticsearch/data
+      - ./es2/plugins/:/usr/share/elasticsearch/plugins
+      - ./docker-plugin-install.sh:/docker-plugin-install.sh
+    
 
 
