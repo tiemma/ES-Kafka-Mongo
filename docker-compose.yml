@@ -18,8 +18,8 @@ services:
       - ./es2/data:/usr/share/elasticsearch/data/
       - ./es2/plugins/:/usr/share/elasticsearch/plugins/
     ports:
-      - 9500:9200
-      - 9600:9300
+      - 9200:9200
+      - 9300:9300
     
   elasticsearch-plugin-install:
     image: elasticsearch:2.0.0
@@ -77,7 +77,7 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       #Append more topics here if needed
-      KAFKA_CREATE_TOPICS: "quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
+      KAFKA_CREATE_TOPICS: "gritServer:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
     depends_on:
       - kafka
     links:
@@ -92,14 +92,16 @@ services:
     image: confluentinc/cp-schema-registry
     container_name: schema-registry
     depends_on:
+      - zookeeper
       - kafka
     links:
       - zookeeper
-      - kafka
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181 
       SCHEMA_REGISTRY_HOST_NAME: schema-registry 
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - 8081:8081
 
   kafka-rest: 
     image: confluentinc/cp-kafka-rest
@@ -126,6 +128,10 @@ services:
       - 9021:9021 
     volumes:
       - "/tmp/control-center/data:/var/lib/confluent-control-center"
+    links:
+      - kafka-connect
+    depends_on:
+      - kafka-connect
     environment:
       CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper:2181 
       CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka:9092 
@@ -133,7 +139,7 @@ services:
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1 
       CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1 
       CONTROL_CENTER_STREAMS_NUM_STREAM_THREADS: 2 
-      CONTROL_CENTER_CONNECT_CLUSTER: http://kafka-connect:8082 
+      CONTROL_CENTER_CONNECT_CLUSTER: http://kafka-connect:8083
   
   kafka-connect:
     image: confluentinc/cp-kafka-connect
@@ -145,10 +151,9 @@ services:
     links:
       - kafka
       - schema-registry
-      - kafka-rest
     environment:
       CONNECT_BOOTSTRAP_SERVERS: kafka:9092 
-      CONNECT_REST_PORT: 8082 
+      CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: "quickstart" 
       CONNECT_CONFIG_STORAGE_TOPIC: "quickstart-config" 
       CONNECT_OFFSET_STORAGE_TOPIC: "quickstart-offsets" 
@@ -157,13 +162,19 @@ services:
       CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter" 
       CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter" 
       CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter" 
+      CONNECT_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+      CONNECT_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
       CONNECT_REST_ADVERTISED_HOST_NAME: localhost   
       CONNECT_LOG4J_LOGGERS: org.reflections=ERROR 
       CONNECT_PLUGIN_PATH: /usr/share/java 
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1    
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
       CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:808
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    ports:
+      - 8083:8083
 
 
