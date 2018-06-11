@@ -1,0 +1,21 @@
+[[source]]
+verify_ssl = true
+url = "https://pypi.python.org/simple"
+name = "pypi"
+
+[dev-packages]
+
+[packages]
+requests = "==2.18.4"
+confluent-kafka = {extras = ["avro"]}
+arrow = "==0.12.1"
+pytz = "*"
+certifi = "==2018.4.16"
+cython = "==0.28.2"
+idna = "==2.6"
+python-dateutil = "==2.7.2"
+six = "==1.11.0"
+fastavro = "==0.17.10"
+chardet = "==3.0.4"
+"urllib3" = "==1.22"
+"avro-python3" = "==1.8.2"

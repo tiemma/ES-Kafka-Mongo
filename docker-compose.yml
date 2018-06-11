@@ -2,13 +2,13 @@ version: "2"
 services:
   elasticsearch :
     image: elasticsearch:2.0.0
-    container_name: elasticsearch-2
+    container_name: elasticsearch
     environment:
       - cluster.name=docker-cluster
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    depends_on:
-      - elasticsearch-plugin-install
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    # depends_on:
+    #   - elasticsearch-plugin-install
     ulimits:
       memlock:
         soft: -1
@@ -20,12 +20,45 @@ services:
     ports:
       - 9200:9200
       - 9300:9300
+
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:5.5.3
+  #   container_name: elasticsearch
+  #   environment:
+  #     - cluster.name=docker-cluster
+  #     - bootstrap.memory_lock=true
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #     # - xpack.security.enabled=false
+  #     - "elasticsearch.cluster1.xpack.security.enabled: false"
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #   mem_limit: 1g
+  #   volumes:
+  #     # - ./es5/data:/usr/share/elasticsearch/data
+  #     # - ./es5/plugins/:/usr/share/elasticsearch/plugins/
+  #     - ./es2/data/elasticsearch:/usr/share/elasticsearch/data
+  #     - ./es5/plugins/:/usr/share/elasticsearch/plugins/
+  #     - ./docker-entrypoint.sh:/docker-entrypoint.sh
+  #   ports:
+  #     - 9200:9200
+  #     - 9300:9300
+  #   # depends_on:
+  #   #   - elasticsearch-plugin-install
+      
+  # elasticsearch-plugin-install:
+  #   image:  docker.elastic.co/elasticsearch/elasticsearch:5.5.3
+  #   command: "bash /docker-plugin-install.sh repository-s3 &"
+  #   volumes:
+  #     - ./es5/plugins/:/usr/share/elasticsearch/plugins/
+  #     - ./docker-plugin-install.sh:/docker-plugin-install.sh
  
-  mongo :
-    image: "mongo:latest"
-    container_name: mongo
-    ports:
-      - 27017:27017
+  # mongo :
+  #   image: "mongo:latest"
+  #   container_name: mongo
+  #   ports:
+  #     - 27017:27017
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -88,8 +121,8 @@ services:
     container_name: kafka-control
     ports: 
       - 9021:9021 
-    volumes:
-      - "/tmp/control-center/data:/var/lib/confluent-control-center"
+    # volumes:
+    #   - "/tmp/control-center/data:/var/lib/confluent-control-center"
     links:
       - kafka-connect
     depends_on:
@@ -138,10 +171,30 @@ services:
     ports:
       - 8083:8083
 
+  simulator:
+    image: python:3.5-slim
+    entrypoint: /wait-for
+    container_name: simulator
+    links: 
+      - schema-registry
+      - kafka
+    depends_on: 
+      - schema-registry
+      - kafka
+    volumes: 
+      - "./sim_tx_engine:/simulator"
+      - "./wait-for/wait-for:/wait-for"
+      - "./run-simulator.sh:/run-simulator.sh"
+      # - "./simulator:/root/.local"
+    command: kafka-rest:8082 -t 10000 -- '/run-simulator.sh'
+
+  # Services automating data and schema recreation
   create-sinks:
     image: confluentinc/cp-kafka-connect
     entrypoint: /bin/bash
     container_name: create-sinks
+    depends_on:
+      - simulator
     links:
       - kafka-connect
       - elasticsearch
@@ -157,7 +210,7 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       #Append more topics here if needed
-      KAFKA_CREATE_TOPICS: "gritServer:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
+      KAFKA_CREATE_TOPICS: "gritServer:1:1,grits_v1:1:1,quickstart-status:1:1,quickstart-offsets:1:1,quickstart-config:1:1" 
     links:
       - kafka-connect
       - zookeeper
@@ -166,29 +219,29 @@ services:
       - "./wait-for/wait-for:/wait-for"
     command: /wait-for kafka-connect:8083 -t 10000 -- '/create-topic.sh' 
 
-  mongorestore:
-    image: "mongo:latest"
-    container_name: mongorestore
-    depends_on:
-      - mongo
-    links: 
-      - mongo
-    volumes: 
-      - "/dump:/dump" #Dump folder which past databases can be recovered from        
-      - "./entrypoint.sh:/entrypoint.sh"
-      - "./wait-for/wait-for:/wait-for"
-    command: /wait-for mongo:27017 -t 10000 -- '/entrypoint.sh' 
-    environment:
-      DB_NAME: database #Change to suitable database name
+  # mongorestore:
+  #   image: "mongo:latest"
+  #   container_name: mongorestore
+  #   depends_on:
+  #     - mongo
+  #   links: 
+  #     - mongo
+  #   volumes: 
+  #     - "/dump:/dump" #Dump folder which past databases can be recovered from        
+  #     - "./entrypoint.sh:/entrypoint.sh"
+  #     - "./wait-for/wait-for:/wait-for"
+  #   command: /wait-for mongo:27017 -t 10000 -- '/entrypoint.sh' 
+  #   environment:
+  #     DB_NAME: database #Change to suitable database name
 
-  elasticsearch-plugin-install:
-    image: elasticsearch:2.0.0
-    container_name: install_es_plugins
-    command: "bash /docker-plugin-install.sh cloud-aws"
-    volumes:
-      - ./es2/data/:/usr/share/elasticsearch/data
-      - ./es2/plugins/:/usr/share/elasticsearch/plugins
-      - ./docker-plugin-install.sh:/docker-plugin-install.sh
+  # elasticsearch-plugin-install:
+  #   image: elasticsearch:2.0.0
+  #   container_name: install_es_plugins
+  #   command: "bash /docker-plugin-install.sh cloud-aws"
+  #   volumes:
+  #     - ./es2/data/:/usr/share/elasticsearch/data
+  #     - ./es2/plugins/:/usr/share/elasticsearch/plugins
+  #     - ./docker-plugin-install.sh:/docker-plugin-install.sh
     
 
 
